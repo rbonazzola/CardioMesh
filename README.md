@@ -16,13 +16,11 @@ You can add this repository as a submodule to your main repository, under the `u
 ## Examples of usage
 ### Loading a mesh
 ```
-from VTKHelpers.VTKMesh import VTKObject
-from trimesh impor Trimesh
+from VTKHelpers.CardiacMesh import Cardiac3DMesh
 
 vtk_path = "full_heart_model.vtk"
-mesh = VTKObject(vtk_path)
-
-Trimesh(mesh.v,mesh.f).show()
+mesh = Cardiac3DMesh(vtk_path)
+mesh.show()
 ```
 ![imagen](https://user-images.githubusercontent.com/11581216/124265436-92553100-db2d-11eb-97e0-4227295f1c90.png)
 
@@ -31,11 +29,12 @@ Trimesh(mesh.v,mesh.f).show()
 ```
 # This follows from the previous code snippet
 # LV mesh
-lv_mesh = mesh.extractSubpart(["LV"])
+lv_mesh = mesh["LV"]
+lv_mesh.show()
 
 # LV & RV mesh
-lvrv_mesh = mesh.extractSubpart(["LV", "RV"])
-Trimesh(lvrv_mesh.v,lvrv_mesh.f).show()
+lvrv_mesh = mesh["LV", "RV"]
+lvrv_mesh.show()
 ```
 
 ![full_heart_model_lvrv](https://user-images.githubusercontent.com/11581216/124301229-6babf000-db57-11eb-8a39-7b3305ae9d89.png)

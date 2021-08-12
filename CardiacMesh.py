@@ -4,7 +4,7 @@ import os
 import meshio # tested with 2.3.0
 
 '''
-This module is aimed to simplify the implementation of common tasks on VTK triangular cardiac meshes,
+This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
 that result overly convoluted if the usual VTK Python wrapper for C++ is used,
 and render the code difficult to follow.
 '''
@@ -206,7 +206,11 @@ class Cardiac3DMesh:
     def __repr__(self):
         return "Point cloud\n\n {} \n\n with connectivity\n\n{}".format(self.points.__str__(), self.triangles.__str__())
         
-
+    def show(self):
+        from trimesh import Trimesh
+        return Trimesh(self.v, self.f).show()
+        
+        
     def __getitem__(self, id):
         
         if self._dataset_version == LEGACY_2CHAMBER_SPASM:
@@ -221,6 +225,7 @@ class Cardiac3DMesh:
             else:
                 raise ValueError("{} is not a valid partition (use LV_endo, LV_epi, LV, RV or RV_endo).".format(id))
         elif self._dataset_version == FULL_HEART_MODEL_MMF:
+            id = list(id) if isinstance(id, tuple) else id
             id = [id] if not isinstance(id, list) else id
             if all([x in self.distinct_subparts for x in id]):
                 return self.extract_subpart(id)
