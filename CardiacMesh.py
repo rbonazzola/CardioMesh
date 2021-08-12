@@ -378,3 +378,46 @@ class Cardiac4DMesh:
         raise NotImplementedError
         #TODO: implement
                         
+
+class CardiacMeshPopulation:
+    
+    def __init__(self, root_path, time_frames=("ED", "ES")):
+        
+        self._root_path = root_path
+        self.CardiacPopulation = None
+        self.subjectIDs = None
+        raise NotImplementedError
+
+        
+    def __getitem__(self, id):        
+        raise NotImplementedError
+        idx = self.subjectIDs.index(id)
+        return self.CardiacPopulation[idx]
+    
+    
+    def generalisedProcrustes(self, scaling=True):       
+        raise NotImplementedError
+        return rotation, translation
+    
+    
+    @property
+    def meanShape(self, mode=None):        
+        raise NotImplementedError        
+        return self._meanShape
+    
+    
+    @property
+    def vertex_wise_stddev(self, mode=None):        
+        raise NotImplementedError        
+        return self._stddev
+    
+    
+    @property    
+    def shapePCA(self, n_comps=20):        
+        raise NotImplementedError
+        try:
+            self._shapePCA
+        except AttributeError:
+            # Code to implement shape PCA
+            self._shapePCA = {"eigenvalues":eigenvals, "eigenvectors": eigenvecs}
+            return self._shapePCA
