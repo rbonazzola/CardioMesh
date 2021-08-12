@@ -274,3 +274,107 @@ class Cardiac3DMesh:
             cells={'triangle': np.array(self.triangles)},
             point_data={'subpartID': self.subpartID}
         )                
+
+
+
+class Cardiac4DMesh:
+
+    '''
+    Class representing a collection of cardiac meshes for one individual, across the cardiac cycle.
+    '''
+
+    def __init__(self, root_folder, time_frames=None):
+        
+        '''
+        root_folder: path to the PyCardioX output for the given individual      
+        time_frames: list|tuple containing 1-50 and/or "ED"/"ES"
+        '''
+        
+        self._root_folder = root_folder        
+        if time_frames is None:            
+            self.time_frames = [i+1 for i in range(50)]
+        else:
+            self.time_frames = time_frames
+        self._time_frames_to_int()                
+        self._vtk_paths = self._get_vtk_paths()                
+        self._load_meshes()
+        
+        
+    @property
+    def subjectID(self):
+        self._subjectID = os.path.basename(self._root_folder.strip("/"))
+        return self._subjectID
+        
+    
+    def _load_meshes(self, load_connectivity_flag=True):
+        self.meshes = []
+        for i, vtk_path in enumerate(self._vtk_paths):
+             if i == 0 and load_connectivity_flag:
+                 self.meshes.append(Cardiac3DMesh(vtk_path, load_connectivity_flag=True))
+             else:
+                 self.meshes.append(Cardiac3DMesh(vtk_path, load_connectivity_flag=False))
+                 if load_connectivity_flag:
+                     self.meshes[i].triangles = self.meshes[0].triangles
+        
+        if load_connectivity_flag:
+            self.triangles = self.meshes[0].triangles
+    
+    
+    def _get_vtk_paths(self):
+        fp = os.path.join(self._root_folder, "output/world2gimias/output.{time_frame}.vtk")
+        return [ fp.format(time_frame=x) for x in self._time_frames_as_path]
+        
+    
+    def _time_frames_to_int(self):
+        self._time_frames_dict = {t:t for t in self.time_frames}
+        self._time_frames_dict["ED"] = 1
+        self._time_frames_dict["ES"] = self.ES_time_frame        
+        self.time_frames = [self._time_frames_dict[t] for t in self.time_frames]
+
+        
+    def __repr__(self):
+        return "Time series of {} meshes (class {}) for subject {}.".format(len(self.meshes), self.meshes[0].__class__.__name__, self.subjectID)
+
+    
+    def __getitem__(self, timeframe):
+        return self.meshes[timeframe]            
+          
+                                    
+    @property
+    # TODO: TEST
+    def ES_time_frame(self):
+        with open(os.path.join(self._root_folder, "ES_time_step.csv"), "rt") as ff:                
+            self._ES_time_frame = int(ff.read().strip())
+        return self._ES_time_frame
+    
+    
+    @property
+    # TODO: TEST
+    def LVEF(self):
+        with open(os.path.join(self._root_folder, "Ejection_fraction.csv"), "rt") as ff:                
+            self._LVEF = float(ff.read().strip())
+        return self._LVEF
+    
+    
+    @property
+    # TODO: TEST
+    def LVSV(self):
+        with open(os.path.join(self._root_folder, "Stroke_volume.csv"), "rt") as ff:                
+            self._LVSV = float(ff.read().strip())
+        return self._LVSV
+        
+        
+    @property
+    def _time_frames_as_path(self):
+        return ["0"*(3-len(str(t))) + str(t) for t in self.time_frames] # "001", "002", ..., "050"
+    
+    
+    def generate_gif(self, gif_path, paraview_config):
+        '''
+        Generate a GIF file showing the moving mesh, using Paraview.
+        gif_path: path to the GIF output file
+        paraview_config: object representing the Paraview config (specify what's needed)
+        '''
+        raise NotImplementedError
+        #TODO: implement
+                        
