@@ -30,7 +30,6 @@ mesh.show()
 # This follows from the previous code snippet
 # LV mesh
 lv_mesh = mesh["LV"]
-lv_mesh.show()
 
 # LV & RV mesh
 lvrv_mesh = mesh["LV", "RV"]
@@ -41,6 +40,5 @@ lvrv_mesh.show()
 
 ## TO-DO
 You can contribute to this repository by solving some of the following and submitting a pull request:
-- The current version of `VTKObject.extractSubpart` does not support saving a VTK file with subpart labels.
-- Create the `VTKObject.show` method to avoid the need of explicit instantiation of a `Trimesh` object.
+- The current version of `VTKObject.extractSubpart` does not support saving a VTK file with non-numeric subpart labels.
 - Eliminate the dependency on the `meshio` library to save the VTK files.
