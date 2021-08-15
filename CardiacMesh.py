@@ -2,17 +2,13 @@ import vtk
 import numpy as np
 import os
 import meshio # tested with 2.3.0
+from Constants import *
 
 '''
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
 that result overly convoluted if the usual VTK Python wrapper for C++ is used,
 and render the code difficult to follow.
 '''
-
-LEGACY_2CHAMBER_SPASM = "LEGACY_2CHAMBER_SPASM"
-LEGACY_4CHAMBER_MMF   = "LEGACY_4CHAMBER_MMF"
-FULL_HEART_MODEL_MMF  = "FULL_HEART_MODEL_MMF"
-
 
 class Cardiac3DMesh:
 
@@ -26,6 +22,7 @@ class Cardiac3DMesh:
         filename: path to a file for a VTK Polydata object.
         subpartIDs: either a label or a list of labels to subset the mesh for (e.g. "LV", "RV", etc.)
         load_connectivity_flag: boolean indicating whether or not to load the mesh connectivity information
+        dataset_version: if None, it is inferred automatically based on the subpart IDs. Currently supported values are "LEGACY_2CHAMBER_SPASM" and "FULL_HEART_MODEL_MMF"
         '''
         
         self.points = None        
@@ -81,10 +78,17 @@ class Cardiac3DMesh:
 
     def _infer_dataset_version(self):
 
+        '''
+        Infer the dataset version. Currently, "LEGACY_2CHAMBER_SPASM" and "FULL_HEART_MODEL_MMF" are supported.
+        '''
+
+        #TODO: decide if there is a better to infer the partition
         if self.distinct_subparts == {1, 2, 4}:
             self._dataset_version = LEGACY_2CHAMBER_SPASM
+            self._subpart_id_mapping = LEGACY_2CH_SUBPART_IDS
         else:
             self._dataset_version = FULL_HEART_MODEL_MMF
+            self._subpart_id_mapping = FHM_SUBPART_IDS
 
 
     @property
@@ -179,8 +183,17 @@ class Cardiac3DMesh:
         '''
         return len(self.edges)
     
-    
-    def extract_subpart(self, ids):
+
+    def __repr__(self):
+        return "Point cloud\n\n {} \n\n with connectivity\n\n{}".format(self.points.__str__(), self.triangles.__str__())
+        
+
+    def show(self):
+        from trimesh import Trimesh
+        return Trimesh(self.v, self.f).show()
+        
+
+    def _extract_subpart(self, ids):
         '''
         ids: a label or a list of labels for the subpart/s to be extracted
         :return: a Cardiac3DMesh object representing the subpart to be extracted.
@@ -202,36 +215,37 @@ class Cardiac3DMesh:
 
         return subvtk
 
-      
-    def __repr__(self):
-        return "Point cloud\n\n {} \n\n with connectivity\n\n{}".format(self.points.__str__(), self.triangles.__str__())
-        
-    def show(self):
-        from trimesh import Trimesh
-        return Trimesh(self.v, self.f).show()
-        
-        
-    def __getitem__(self, id):
-        
-        if self._dataset_version == LEGACY_2CHAMBER_SPASM:
-            if id == "LV_endo":
-                return self.extract_subpart(1)
-            elif id == "LV_epi":
-                return self.extract_subpart(2)
-            elif id == "LV":
-                return self.extract_subpart([1,2])
-            elif id == "RV_endo" or id == "RV":
-                return self.extract_subpart(4)
-            else:
-                raise ValueError("{} is not a valid partition (use LV_endo, LV_epi, LV, RV or RV_endo).".format(id))
-        elif self._dataset_version == FULL_HEART_MODEL_MMF:
-            id = list(id) if isinstance(id, tuple) else id
-            id = [id] if not isinstance(id, list) else id
-            if all([x in self.distinct_subparts for x in id]):
-                return self.extract_subpart(id)
-            else:
-                raise ValueError("{} is not a valid partition (use {} or combinations thereof)".format(id, ", ".join(sorted(list(self.distinct_subparts)))))
 
+    def _map_subpart_ids(self, ids):
+        '''
+
+        '''
+
+        ids = list(ids) if isinstance(ids, tuple) else ids
+        ids = [ids] if not isinstance(ids, list) else ids
+
+        # 1 -> [1]
+        # 1,2 -> [1,2]
+        # "LV" -> ["LV"]
+        # "LV", "RV"  -> ["LV", "RV"]
+        
+        possible_values = list(self.distinct_subparts)
+        possible_values += [ x for x in self._subpart_id_mapping if all([y in self.distinct_subparts for y in self._subpart_id_mapping[x]])] 
+
+        kk = []
+
+        for id in ids:
+            for x in self._subpart_id_mapping.get(id, [id]):
+                if x in possible_values:                
+                    kk.append(x)
+                else:
+                    raise ValueError("{} is not a valid partition (use {} or combinations thereof)".format(x, ", ".join(sorted([str(x) for x in possible_values]))))
+
+        return kk
+
+
+    def __getitem__(self, ids):        
+        return self._extract_subpart(self._map_subpart_ids(ids))
             
     @property
     def shape(self):
@@ -274,7 +288,6 @@ class Cardiac3DMesh:
             cells={'triangle': np.array(self.triangles)},
             point_data={'subpartID': self.subpartID}
         )                
-
 
 
 class Cardiac4DMesh:
@@ -389,7 +402,7 @@ class CardiacMeshPopulation:
         raise NotImplementedError
 
         
-    def __getitem__(self, id):        
+    def __getitem__(self, id):     
         raise NotImplementedError
         idx = self.subjectIDs.index(id)
         return self.CardiacPopulation[idx]
