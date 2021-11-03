@@ -22,10 +22,17 @@ The code has been tested using the following versions:
 ##Tips
 You can add this repository as a submodule to your main repository, under the `utils` folder (or similar).
 
-##Examples of usage
----
-###`Cardiac3DMesh`
-#####Loading a mesh
+## Basic description
+This repo implements three classes:
+- `Cardiac3DMesh`: represents a single cardiac mesh or point cloud.
+- `Cardiac4DMesh`: represents a collection of cardiac meshes for one individual, across the cardiac cycle.
+- `CardiacMeshPopulation`: represents a population of cardiac meshes (either 3D or 4D), i.e. meshes for different individuals in a population.
+
+## Examples of usage
+
+### `Cardiac3DMesh`
+
+#### Loading a mesh
 
 ```
 from VTKHelpers.CardiacMesh import Cardiac3DMesh
@@ -36,7 +43,7 @@ mesh.show()
 ```
 ![imagen](https://user-images.githubusercontent.com/11581216/124265436-92553100-db2d-11eb-97e0-4227295f1c90.png)
 
-##### Extracting a partition
+#### Extracting a partition
 
 ```
 # This follows from the previous code snippet
@@ -55,7 +62,7 @@ lvrv_mesh.show()
 ![full_heart_model_lvrv](https://user-images.githubusercontent.com/11581216/124301229-6babf000-db57-11eb-8a39-7b3305ae9d89.png)
 
 ---
-###`Cardiac4DMesh`
+### `Cardiac4DMesh`
 We will assume a folder structure like the following:
 ```buildoutcfg
 ├── ED_time_step.csv
@@ -88,16 +95,21 @@ We will assume a folder structure like the following:
 └── wallThickness_per_segm.csv
 ```
 
-#####Loading a spatio-temporal mesh (a "4D mesh")
+#### Loading a spatio-temporal mesh (a "4D mesh")
+
+```
+_To complete_
+```
+
 ```buildoutcfg
 vtk_path = "full_heart_model.vtk"
 ```
 
----
-###`CardiacMeshPopulation`
+### `CardiacMeshPopulation`
 Here we are assuming a folder structure like the following:
-```buildoutcfg
 
+```buildoutcfg
+_To complete_
 ```
 
 ```buildoutcfg
@@ -105,6 +117,6 @@ vtk_path = "full_heart_model.vtk"
 ```
 
 ## TO-DO
-You can contribute to this repository by solving some of the following and submitting a pull request:
+You can contribute to this repository by pinpointing bugs (and, if possible, solving them and making a pull request) or identifying needed features. Some of the ones I have identified are:
 - The current version of `VTKObject.extractSubpart` does not support saving a VTK file with non-numeric subpart labels.
 - Eliminate the dependency on the `meshio` library to save the VTK files.
