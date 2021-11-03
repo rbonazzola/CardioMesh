@@ -13,6 +13,12 @@ The code has been tested using the following versions:
 ## Tips
 You can add this repository as a submodule to your main repository, under the `utils` folder (or similar).
 
+## Basic description
+This repo implements three classes:
+- `Cardiac3DMesh`: represents a single cardiac mesh or point cloud.
+- `Cardiac4DMesh`: represents a collection of cardiac meshes for one individual, across the cardiac cycle.
+- `CardiacMeshPopulation`: represents a population of cardiac meshes (either 3D or 4D), i.e. meshes for different individuals in a population.
+
 ## Examples of usage
 ### Loading a mesh
 ```
