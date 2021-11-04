@@ -3,6 +3,7 @@ import numpy as np
 import os
 import meshio # tested with 2.3.0
 from Constants import *
+from tqdm import tqdm
 
 '''
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
@@ -29,12 +30,16 @@ class Cardiac3DMesh:
 
         if filename is not None:
             self._filename = filename
+
+            if not os.path.exists(self._filename):
+                raise FileExistsError("File {} does not exist.".format(self._filename))
+
             self._reader = vtk.vtkPolyDataReader()
             self._reader.SetFileName(self._filename)
             self._reader.Update()
                         
             self._load_point_cloud()                                    
-            if load_connectivity_flag: self.load_connectivity()                
+            if load_connectivity_flag: self._load_connectivity()                
             self._load_partition_ids()
             self._infer_dataset_version()
         
@@ -52,9 +57,9 @@ class Cardiac3DMesh:
         output = self._reader.GetOutput()
         n_points = output.GetNumberOfPoints()        
         self.points = np.array([output.GetPoint(i) for i in range(n_points)])
-        
-           
-    def load_connectivity(self, triangles=None, edges=None):
+
+
+    def _load_connectivity(self, triangles=None, edges=None):
 
         '''
         triangles: if not None, must be a list of 3-tuples containing valid point indices
@@ -132,6 +137,7 @@ class Cardiac3DMesh:
                 self._neighbors_dict.get(edge[0], []).append(edge[1])
             return self._neighbors_dict
     
+
     @property
     def distinct_subparts(self):
         return set(self.subpartID)
@@ -185,7 +191,7 @@ class Cardiac3DMesh:
     
 
     def __repr__(self):
-        return "Point cloud\n\n {} \n\n with connectivity\n\n{}".format(self.points.__str__(), self.triangles.__str__())
+        return "Point cloud\n\n {} \n\n.".format(self.points.__str__()) # with connectivity\n\n{}".format(self.points.__str__(), self.triangles.__str__())
         
 
     def show(self):
@@ -294,6 +300,12 @@ class Cardiac4DMesh:
 
     '''
     Class representing a collection of cardiac meshes for one individual, across the cardiac cycle.
+    Public attributes:
+      meshes:
+      triangles:
+      time_frames: list of integers
+      subjectID
+      LVEDV, LVESV, LVEF, LVSV, LVM
     '''
 
     def __init__(self, root_folder, time_frames=None):
@@ -304,17 +316,22 @@ class Cardiac4DMesh:
         '''
         
         self._root_folder = root_folder        
-        if time_frames is None:            
-            self.time_frames = [i+1 for i in range(50)]
+        
+        if time_frames is None:
+            self.time_frames = [ i+1 for i in range(50) ]
         else:
             self.time_frames = time_frames
         self._time_frames_to_int()                
-        self._vtk_paths = self._get_vtk_paths()                
+        
+        self._vtk_paths = self._get_vtk_paths()
         self._load_meshes()
         
         
     @property
     def subjectID(self):
+        '''
+        This method assumes that the subject ID is the name of the rightmost folder.
+        '''
         self._subjectID = os.path.basename(self._root_folder.strip("/"))
         return self._subjectID
         
@@ -323,34 +340,53 @@ class Cardiac4DMesh:
         self.meshes = []
         for i, vtk_path in enumerate(self._vtk_paths):
              if i == 0 and load_connectivity_flag:
-                 self.meshes.append(Cardiac3DMesh(vtk_path, load_connectivity_flag=True))
+                 # For efficiency reasons, connectivity is loaded only for the first mesh and copied (as a reference) to the rest.
+                 mesh = Cardiac3DMesh(vtk_path, load_connectivity_flag=True)
+                 self.meshes.append(mesh)
              else:
-                 self.meshes.append(Cardiac3DMesh(vtk_path, load_connectivity_flag=False))
+                 mesh = Cardiac3DMesh(vtk_path, load_connectivity_flag=False)
+                 self.meshes.append(mesh)
                  if load_connectivity_flag:
                      self.meshes[i].triangles = self.meshes[0].triangles
         
         if load_connectivity_flag:
             self.triangles = self.meshes[0].triangles
     
-    
+    def as_numpy_array(self):
+        kk = [x.points for x in self.meshes]
+        try:
+          kk = np.stack(kk, axis=0)
+        except:
+          # Handle this error better
+          raise ValueError("Not possible to create Numpy array for individual {id}. The folder is likely to be incomplete.".format(id=self.subjectID))
+        return(kk)
+
+
     def _get_vtk_paths(self):
+
+        #TODO: provide file pattern as argument to constructor
+        #The current (hardcoded) file pattern is the one used by the SPASM output.
         fp = os.path.join(self._root_folder, "output/world2gimias/output.{time_frame}.vtk")
-        return [ fp.format(time_frame=x) for x in self._time_frames_as_path]
+        return [ fp.format(time_frame=x) for x in self._time_frames_as_path ]
         
     
     def _time_frames_to_int(self):
+        '''
+        Convert cardiac phases like "ED" and "ES" (for end-diastole and end-systole) to the corresponding integer indices
+        :return: None
+        '''
         self._time_frames_dict = {t:t for t in self.time_frames}
         self._time_frames_dict["ED"] = 1
-        self._time_frames_dict["ES"] = self.ES_time_frame        
+        self._time_frames_dict["ES"] = self.ES_time_frame
         self.time_frames = [self._time_frames_dict[t] for t in self.time_frames]
 
         
     def __repr__(self):
-        return "Time series of {} meshes (class {}) for subject {}.".format(len(self.meshes), self.meshes[0].__class__.__name__, self.subjectID)
+        return "Time series of {} meshes (class {}) for subject {}".format(len(self.meshes), self.meshes[0].__class__.__name__, self.subjectID)
 
     
     def __getitem__(self, timeframe):
-        return self.meshes[timeframe]            
+        return self.meshes[self._time_frames_dict[timeframe]]
           
                                     
     @property
@@ -389,32 +425,94 @@ class Cardiac4DMesh:
         paraview_config: object representing the Paraview config (specify what's needed)
         '''
         raise NotImplementedError
-        #TODO: implement
                         
 
-class CardiacMeshPopulation:
-    
-    def __init__(self, root_path, time_frames=("ED", "ES")):
-        
-        self._root_path = root_path
-        self.CardiacPopulation = None
-        self.subjectIDs = None
-        raise NotImplementedError
+# "~/data/PhD/meshes/vtk_meshes/2ch_full_cycle/1000215/output/world2gimias/output.001.vtk"
 
+class CardiacMeshPopulation:
+
+    """
+    Class representing a population of cardiac meshes (either 3D or 4D),
+    i.e. meshes for different individuals in a population
+
+    Public attributes:
+      meshes
+      triangles
+      subject_ids
+      meanShape
+      vertex_wise_stddev
+
+    Usage example:
+      mesh_pop = CardiacMeshPopulation(<ROOT_FOLDER>)
+      mesh_pop[<SUBJECT_ID>] <--- either a Cardiac3DMesh or a Cardiac4DMesh object
+    """
+
+    def __init__(self, root_path=None, filename_pattern=None, time_frames=None, shuffle=False, N_subj=None, in_memory=True, logger=None):
+        self._root_path = root_path
+        self._N_subj = N_subj
+        self._shuffle = shuffle
+        self._folders = [os.path.join(self._root_path, x) for x in os.listdir(self._root_path)]
+        self._logger = logger
+        self.time_frames = time_frames
+        if in_memory:
+            self._load_data()                
+
+
+    def _load_data(self):                
+
+        self.meshes, self.ids = [], []
+        counter = 0
+
+        for i, p in enumerate(tqdm(self._folders, unit="subjects")):
+            try:                
+                c4dm = Cardiac4DMesh(p, time_frames=self.time_frames)
+                if i == 0:
+                    self.time_frames = c4dm.time_frames
+                id = c4dm.subjectID
+                self.meshes.append(c4dm)
+                self.ids.append(id)                
+                counter += 1
+                if self._N_subj is not None and counter == self._N_subj:
+                    break
+            except:
+                #TODO: identify malformed folders
+                self._logger.warning("Folder {} could not be read successfully".format(p))
         
-    def __getitem__(self, id):     
-        raise NotImplementedError
-        idx = self.subjectIDs.index(id)
-        return self.CardiacPopulation[idx]
-    
-    
-    def generalisedProcrustes(self, scaling=True):       
-        raise NotImplementedError
-        return rotation, translation
-    
-    
+        # call triangles attribute from the Cardiac4DMesh class.
+        self.triangles = self[0].triangles
+
+
+    def __getitem__(self, indices):
+
+        #TODO: implement an indexing scheme as the following
+        '''
+        CMP = CardiacMeshPopulation(...)
+        CMP[<SUBJECT_ID>]: a Cardiac4DMesh
+        CMP[<SUBJECT_ID>, <TIMEFRAMES>] ---> CMP[<SUBJECT_ID>][<TIMEFRAMES>]
+        CMP[<SUBJECT_ID>, <TIMEFRAMES>, [<PARTITIONS>]] ---> CMP[<SUBJECT_ID>,<TIMEFRAMES>][<PARTITIONS>]
+        :param id:
+        :return:
+        '''
+        if isinstance(indices, int):
+            int_idx = indices
+            if int_idx >= 0 and int_idx < len(self.ids):
+                return self.meshes[int_idx]
+        elif isinstance(indices, str):
+            # If a (single) string, it's interpreted as a individual's ID.
+            subject_id = indices
+            subject_index = self.ids.index(subject_id)
+            return self.meshes[subject_index]
+        elif isinstance(indices, tuple) or isinstance(indices, list):            
+            if len(indices) == 2:
+                subject_id, timeframe = indices
+                return self[subject_id][timeframe]
+            elif len(indices) == 3:
+                subject_id, timeframes, partition = indices
+                return self[subject_id, timeframe][partition]
+                    
     @property
-    def meanShape(self, mode=None):        
+    def meanShape(self, mode=None):
+
         raise NotImplementedError        
         return self._meanShape
     
@@ -425,7 +523,20 @@ class CardiacMeshPopulation:
         return self._stddev
     
     
-    @property    
+    def _normalize(self):
+        # Mean and std. are computed based on all the samples (not only the training ones). I think this makes sense.
+        # Create self.is_normalized argument and set to True to track normalization status.
+        self.mean, self.std = np.mean(self.point_clouds, axis=0), np.std(self.point_clouds, axis=0)
+        self.point_clouds = (self.point_clouds - self.mean) / self.std
+        self.is_normalized = True
+        self._logger.info('Vertices normalized')
+
+ 
+    def as_numpy_array(self):        
+        return np.stack([x.as_numpy_array() for x in self.meshes], axis=0)
+
+
+    @property
     def shapePCA(self, n_comps=20):        
         raise NotImplementedError
         try:
@@ -434,3 +545,76 @@ class CardiacMeshPopulation:
             # Code to implement shape PCA
             self._shapePCA = {"eigenvalues":eigenvals, "eigenvectors": eigenvecs}
             return self._shapePCA
+
+
+    def generalisedProcrustes(self, scaling=True):       
+
+        if scaling:
+            logger.info("Performing Procrustes analysis with scaling")
+            self.reference_mesh = self.meshes[0]
+            old_disparity, disparity = 0, 1  # random values        
+            it_count = 0
+            while abs(old_disparity - disparity) / disparity > 1e-2 and disparity:
+                old_disparity = disparity
+                disparity = 0
+                for i in range(len(self.point_clouds)):
+                    # Docs: https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.procrustes.html
+                    if self.procrustes_scaling:
+                        mtx1, mtx2, _disparity = procrustes(self.reference_mesh, self.point_clouds[i])
+                        self.point_clouds[i] = np.array(mtx2) # if self.procrustes_scaling else np.array(mtx1)
+                    else:
+                        # Docs: https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.orthogonal_procrustes.html
+                        # Note that the arguments are swapped respect to the previous @procrustes function
+                        R, s = orthogonal_procrustes(self.point_clouds[i], self.reference_mesh)
+                        # Rotate
+                        self.point_clouds[i] = np.dot(self.point_clouds[i], R) # * s
+                        # Mean point-wise MSE
+                        _disparity = np.mean(np.sqrt(np.sum(
+                            np.square(self.point_clouds[i] - self.reference_mesh), axis=1)
+                        ))
+                    disparity += _disparity
+                disparity /= self.point_clouds.shape[0]
+                self.reference_mesh = self.point_clouds.mean(axis=0)
+                it_count += 1
+            self.procrustes_aligned = True
+            self._logger.info("Generalized Procrustes analysis with scaling performed after %s iterations" % it_count)
+
+        else:
+            self._logger.info("Performing Procrustes analysis without scaling")
+            from scipy.linalg import orthogonal_procrustes
+
+            self.reference_mesh = self.point_clouds[0]
+            old_disparity, disparity = 0, 1
+
+            # Center the meshes
+            for i in range(len(self.point_clouds)):
+                self.point_clouds[i] -= np.mean(self.point_clouds[i], 0)
+
+                it_count = 0
+                while abs(old_disparity - disparity) / disparity > 1e-4:
+                    old_disparity = disparity
+                    disparity = 0
+                    for i in range(len(self.point_clouds)):
+                        # Docs: https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.orthogonal_procrustes.html
+                        R, s = orthogonal_procrustes(self.point_clouds[i], self.reference_mesh)
+
+                        # Rotate
+                        self.point_clouds[i] = np.dot(self.point_clouds[i], R) # * s
+
+                        # Mean point-wise MSE
+                        _disparity = np.mean(np.sqrt(np.sum(
+                            np.square(self.point_clouds[i] - self.reference_mesh), axis=1)
+                        ))
+
+                        disparity += _disparity
+
+                    disparity /= self.point_clouds.shape[0]
+                    self.reference_mesh = self.point_clouds.mean(axis=0)
+                    print(disparity)
+                    it_count += 1
+
+                self.procrustes_aligned = True
+                self._logger.info("Generalized Procrustes analysis performed after %s iterations" % it_count)
+
+        raise NotImplementedError
+        return rotation, translation
