@@ -81,6 +81,11 @@ class Cardiac3DMesh:
                 self.subpartID = dict['subpartID']
                 self._infer_dataset_version()
 
+        if subpartIDs is not None:
+            newMesh = self._extract_subpart(subpartIDs)
+            self.__dict__.update(newMesh.__dict__)
+
+
     def _load_point_cloud(self):
 
         """
@@ -243,7 +248,7 @@ class Cardiac3DMesh:
         """
 
         ids = [ids] if not isinstance(ids, list) else ids
-
+        
         subvtk = Cardiac3DMesh()
         subvtk.points = np.array(
             [self.points[i] for i in range(self.n_points) if self.subpartID[i] in ids]
