@@ -12,6 +12,8 @@ import random
 
 from IPython import embed  # For debugging
 
+import pickle as pkl
+
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
 that result overly convoluted if the usual VTK Python wrapper for C++ is used,
@@ -55,18 +57,29 @@ class Cardiac3DMesh:
             if not os.path.exists(self._filename):
                 raise FileExistsError("File {} does not exist.".format(self._filename))
 
-            self._reader = vtk.vtkPolyDataReader()
-            self._reader.SetFileName(self._filename)
-            self._reader.Update()
+            # check if filename extension is .vtk or pickle 
+            if self._filename.endswith(".vtk"):
 
-            self._load_point_cloud()
-            if load_connectivity_flag:
-                self._load_connectivity()
-            self._load_partition_ids()
-            self._infer_dataset_version()
+                self._reader = vtk.vtkPolyDataReader()
+                self._reader.SetFileName(self._filename)
+                self._reader.Update()
 
-        if subpartIDs is not None:
-            self = self.extract_subpart(subpartIDs)
+                self._load_point_cloud()
+                if load_connectivity_flag:
+                    self._load_connectivity()
+                self._load_partition_ids()
+                self._infer_dataset_version()
+
+            elif self._filename.endswith(".pkl"):
+
+                with open(self._filename, "rb") as f:
+                    dict = pkl.load(f)
+                
+                # We can assume vertices and faces are numpy arrays
+                self.points = dict['points']
+                self.triangles = dict['triangles']
+                self.subpartID = dict['subpartID']
+                self._infer_dataset_version()
 
     def _load_point_cloud(self):
 
@@ -336,6 +349,13 @@ class Cardiac3DMesh:
             cells={"triangle": np.array(self.triangles)},
             point_data={"subpartID": self.subpartID},
         )
+        
+    # mesh to pickle
+    def save_to_pkl(self, filename):
+        dict = {"points" : self.points, "triangles" : self.triangles, "subpartID" : self.subpartID}
+
+        with open(filename, "wb") as f:
+            pkl.dump(dict, f)
 
 
 class Cardiac4DMesh:
