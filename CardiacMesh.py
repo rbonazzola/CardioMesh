@@ -13,10 +13,11 @@ import random
 from IPython import embed  # For debugging
 
 import pickle as pkl
+from stl import mesh as stlmesh
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
-that result overly convoluted if the usual VTK Python wrapper for C++ is used,
+that self.points overly convoluted if the usual VTK Python wrapper for C++ is used,
 and render the code difficult to follow.
 """
 
@@ -362,6 +363,22 @@ class Cardiac3DMesh:
         with open(filename, "wb") as f:
             pkl.dump(dict, f)
 
+    # mesh to stl
+    def save_to_stl(self, filename):
+        num_triangles = self.triangles.shape[0]
+        data = np.zeros(num_triangles, dtype=stlmesh.Mesh.dtype)
+
+        for i in range(num_triangles):
+            #I did not know how to use numpy-arrays in this case. This was the major roadblock
+            # assign vertex co-ordinates to variables to write into mesh
+            v1x, v1y, v1z = self.points[self.triangles[i,0],0], self.points[self.triangles[i,0],1], self.points[self.triangles[i,0],2]
+            v2x, v2y, v2z = self.points[self.triangles[i,1],0], self.points[self.triangles[i,1],1], self.points[self.triangles[i,1],2]
+            v3x, v3y, v3z = self.points[self.triangles[i,2],0], self.points[self.triangles[i,2],1], self.points[self.triangles[i,2],2]
+            
+            data["vectors"][i] = np.array([[v1x, v1y, v1z],[v2x, v2y, v2z],[v3x, v3y, v3z]])
+
+        m = stlmesh.Mesh(data)
+        m.save(filename)
 
 class Cardiac4DMesh:
 
