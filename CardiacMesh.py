@@ -79,7 +79,10 @@ class Cardiac3DMesh:
                 # We can assume vertices and faces are numpy arrays
                 self.points = dict['points']
                 self.triangles = dict['triangles']
-                self.subpartID = dict['subpartID']
+                try:
+                    self.subpartID = dict['subpartID']
+                except:
+                    subpartIDs = None
                 self._infer_dataset_version()
 
         if subpartIDs is not None:

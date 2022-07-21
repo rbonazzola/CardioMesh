@@ -35,7 +35,7 @@ This repo implements three classes:
 #### Loading a mesh
 
 ```
-from VTKHelpers.CardiacMesh import Cardiac3DMesh
+from CardioMesh.CardiacMesh import Cardiac3DMesh
 
 vtk_path = "full_heart_model.vtk"
 mesh = Cardiac3DMesh(vtk_path)
