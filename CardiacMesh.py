@@ -12,9 +12,12 @@ import random
 
 from IPython import embed  # For debugging
 
+import pickle as pkl
+from stl import mesh as stlmesh
+
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
-that result overly convoluted if the usual VTK Python wrapper for C++ is used,
+that self.points overly convoluted if the usual VTK Python wrapper for C++ is used,
 and render the code difficult to follow.
 """
 
@@ -55,18 +58,37 @@ class Cardiac3DMesh:
             if not os.path.exists(self._filename):
                 raise FileExistsError("File {} does not exist.".format(self._filename))
 
-            self._reader = vtk.vtkPolyDataReader()
-            self._reader.SetFileName(self._filename)
-            self._reader.Update()
+            # check if filename extension is .vtk or pickle 
+            if self._filename.endswith(".vtk"):
 
-            self._load_point_cloud()
-            if load_connectivity_flag:
-                self._load_connectivity()
-            self._load_partition_ids()
-            self._infer_dataset_version()
+                self._reader = vtk.vtkPolyDataReader()
+                self._reader.SetFileName(self._filename)
+                self._reader.Update()
+
+                self._load_point_cloud()
+                if load_connectivity_flag:
+                    self._load_connectivity()
+                self._load_partition_ids()
+                self._infer_dataset_version()
+
+            elif self._filename.endswith(".pkl"):
+
+                with open(self._filename, "rb") as f:
+                    dict = pkl.load(f)
+                
+                # We can assume vertices and faces are numpy arrays
+                self.points = dict['points']
+                self.triangles = dict['triangles']
+                try:
+                    self.subpartID = dict['subpartID']
+                except:
+                    subpartIDs = None
+                self._infer_dataset_version()
 
         if subpartIDs is not None:
-            self = self.extract_subpart(subpartIDs)
+            newMesh = self._extract_subpart(subpartIDs)
+            self.__dict__.update(newMesh.__dict__)
+
 
     def _load_point_cloud(self):
 
@@ -230,7 +252,7 @@ class Cardiac3DMesh:
         """
 
         ids = [ids] if not isinstance(ids, list) else ids
-
+        
         subvtk = Cardiac3DMesh()
         subvtk.points = np.array(
             [self.points[i] for i in range(self.n_points) if self.subpartID[i] in ids]
@@ -336,7 +358,30 @@ class Cardiac3DMesh:
             cells={"triangle": np.array(self.triangles)},
             point_data={"subpartID": self.subpartID},
         )
+        
+    # mesh to pickle
+    def save_to_pkl(self, filename):
+        dict = {"points" : self.points, "triangles" : self.triangles, "subpartID" : self.subpartID}
 
+        with open(filename, "wb") as f:
+            pkl.dump(dict, f)
+
+    # mesh to stl
+    def save_to_stl(self, filename):
+        num_triangles = self.triangles.shape[0]
+        data = np.zeros(num_triangles, dtype=stlmesh.Mesh.dtype)
+
+        for i in range(num_triangles):
+            #I did not know how to use numpy-arrays in this case. This was the major roadblock
+            # assign vertex co-ordinates to variables to write into mesh
+            v1x, v1y, v1z = self.points[self.triangles[i,0],0], self.points[self.triangles[i,0],1], self.points[self.triangles[i,0],2]
+            v2x, v2y, v2z = self.points[self.triangles[i,1],0], self.points[self.triangles[i,1],1], self.points[self.triangles[i,1],2]
+            v3x, v3y, v3z = self.points[self.triangles[i,2],0], self.points[self.triangles[i,2],1], self.points[self.triangles[i,2],2]
+            
+            data["vectors"][i] = np.array([[v1x, v1y, v1z],[v2x, v2y, v2z],[v3x, v3y, v3z]])
+
+        m = stlmesh.Mesh(data)
+        m.save(filename)
 
 class Cardiac4DMesh:
 
