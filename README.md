@@ -1,25 +1,26 @@
-# VTK Helpers
-This repository provides a helper class for working with the VTK cardiac meshes produced by the CardioX pipeline.
-This code was tested successfully on bi-ventricular meshes produced by the SpASM method as well as the current DL-based 4-chamber model.
+# CardioMesh
+This repository provides a helper class for working with the cardiac meshes produced by the CardioX pipeline.
+This code was tested successfully on bi-ventricular meshes produced by the SpASM method as well as the current full-heart model.
 
 # Table of Contents
 - [Requirements](##Requirements)
-- [Tips](#Tips)
-- [Examples of usage](#Examples of usage)
+- [Tips](##Tips)
+- [Examples of usage](##Examples-of-usage")
     - [`Cardiac3DMesh`](#`Cardiac3DMesh`)
     - [`Cardiac4DMesh`](#`Cardiac4DMesh`)
     - [`CardiacMeshPopulation`](#`CardiacMeshPopulation`)
-4. [TO DO](#TO DO)
+4. [TO DO](#TO-DO)
 
-##Requirements
+## Requirements
 The code has been tested using the following versions:
 - `trimesh==3.9.15`
 - `vtk==9.0.1`
 - `numpy==1.17.4`
 - `pyglet==1.5.18`
 - `meshio==2.3.0`
+- `numpy-stl==2.17.1`
 
-##Tips
+## Tips
 You can add this repository as a submodule to your main repository, under the `utils` folder (or similar).
 
 ## Basic description
@@ -54,7 +55,7 @@ lv_mesh = mesh["LV"]
 lvrv_mesh = mesh["LV", "RV"]
 ```
 
-#####Displaying a mesh (in a Jupyter Notebook)
+##### Displaying a mesh (in a Jupyter Notebook)
 ```
 lvrv_mesh.show()
 ```
@@ -96,27 +97,17 @@ We will assume a folder structure like the following:
 ```
 
 #### Loading a spatio-temporal mesh (a "4D mesh")
-
-```
 _To complete_
-```
 
-```buildoutcfg
-vtk_path = "full_heart_model.vtk"
-```
 
 ### `CardiacMeshPopulation`
 Here we are assuming a folder structure like the following:
 
-```buildoutcfg
 _To complete_
-```
 
-```buildoutcfg
-vtk_path = "full_heart_model.vtk"
-```
 
-## TO-DO
+## TO DO
 You can contribute to this repository by pinpointing bugs (and, if possible, solving them and making a pull request) or identifying needed features. Some of the ones I have identified are:
-- The current version of `VTKObject.extractSubpart` does not support saving a VTK file with non-numeric subpart labels.
 - Eliminate the dependency on the `meshio` library to save the VTK files.
+- Add an option to add integer `subpartID`'s, so that the subparts can be colored differently on Paraview (Paraview 5.10 does not seem to support string-valued labels for coloring).
+- Build a base class for (a population of) registered meshes, i.e. meshes with the same number of vertices and connectivity.
