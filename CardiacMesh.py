@@ -10,14 +10,13 @@ from tqdm import tqdm
 import logging
 import random
 
-from IPython import embed  # For debugging
-
-import pickle as pkl
 from stl import mesh as stlmesh
+
+from IPython import embed  # For debugging
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
-that self.points overly convoluted if the usual VTK Python wrapper for C++ is used,
+that result overly convoluted if the usual VTK Python wrapper for C++ is used,
 and render the code difficult to follow.
 """
 
@@ -101,6 +100,7 @@ class Cardiac3DMesh:
         n_points = output.GetNumberOfPoints()
         self.points = np.array([output.GetPoint(i) for i in range(n_points)])
 
+
     def _load_connectivity(self, triangles=None, edges=None):
 
         """
@@ -127,19 +127,23 @@ class Cardiac3DMesh:
 
         self.triangles = np.array(self.triangles)
 
+
     def _infer_dataset_version(self):
 
         """
         Infer the dataset version. Currently, "LEGACY_2CHAMBER_SPASM" and "FULL_HEART_MODEL_MMF" are supported.
         """
 
-        # TODO: decide if there is a better to infer the partition
+        # TODO: decide if there is a better way to infer the data version
         if self.distinct_subparts == {1, 2, 4}:
             self._dataset_version = LEGACY_2CHAMBER_SPASM
             self._subpart_id_mapping = LEGACY_2CH_SUBPART_IDS
         else:
             self._dataset_version = FULL_HEART_MODEL_MMF
             self._subpart_id_mapping = FHM_SUBPART_IDS
+            self._subpart_id_mapping_str_to_int = FHM_SUBPART_AS_INT
+            self._subpart_id_mapping_int_to_str = FHM_SUBPART_AS_STR
+
 
     @property
     def edges(self):
@@ -149,15 +153,18 @@ class Cardiac3DMesh:
             self._edges = self._edges_from_triangles(self.triangles)
             return self._edges
 
+
     def _edges_from_triangles(self, triangles):
         edges = []
         for x, y, z in triangles:
             edges.extend([(x, y), (y, z), (x, z), (y, x), (z, y), (z, x)])
         return list(set(edges))
 
+
     def _triangles_from_edges(self):
         raise NotImplementedError
         # TODO: implement
+
 
     # @property
     # def triangles(self):
@@ -167,6 +174,7 @@ class Cardiac3DMesh:
     #         output = self._reader.GetOutput()
     #         self._triangles = [[int(output.GetCell(j).GetPointId(i)) for i in (0, 1, 2)] for j in range(self.n_cells)]
     #         return np.array(self._triangles)
+
 
     @property
     def neighbors_dict(self):
@@ -178,9 +186,11 @@ class Cardiac3DMesh:
                 self._neighbors_dict.get(edge[0], []).append(edge[1])
             return self._neighbors_dict
 
+
     @property
     def distinct_subparts(self):
         return set(self.subpartID)
+
 
     @property
     def v(self):
@@ -190,6 +200,7 @@ class Cardiac3DMesh:
         """
         return self.points
 
+
     @property
     def f(self):
         """
@@ -197,6 +208,7 @@ class Cardiac3DMesh:
         Probably it is better to use a wrapper (child) class for this.
         """
         return self.triangles
+
 
     def _load_partition_ids(self):
 
@@ -210,12 +222,14 @@ class Cardiac3DMesh:
         self.subpartID = [pp.GetValue(i) for i in range(self.n_points)]
         # self.subpartID = [int(pp.GetComponent(i, 0)) for i in range(self.n_points)]
 
+
     @property
     def n_points(self):
         """
         Number of vertices in the mesh
         """
         return len(self.points)
+
 
     @property
     def n_edges(self):
@@ -224,13 +238,16 @@ class Cardiac3DMesh:
         """
         return len(self.edges)
 
+
     def __len__(self):
         return self.n_points
+
 
     def __repr__(self):
         return "Point cloud\n\n {} \n\n.".format(
             self.points.__str__()
         )  # with connectivity\n\n{}".format(self.points.__str__(), self.triangles.__str__())
+
 
     def show(self, engine="trimesh"):
 
@@ -245,6 +262,7 @@ class Cardiac3DMesh:
                     "Trimesh package must be installed in order to use this functionality."
                 )
 
+
     def _extract_subpart(self, ids):
         """
         ids: a label or a list of labels for the subpart/s to be extracted
@@ -252,11 +270,17 @@ class Cardiac3DMesh:
         """
 
         ids = [ids] if not isinstance(ids, list) else ids
-        
+
         subvtk = Cardiac3DMesh()
-        subvtk.points = np.array(
-            [self.points[i] for i in range(self.n_points) if self.subpartID[i] in ids]
-        )
+
+        # extract points
+        subvtk.points = np.array([
+            self.points[i] 
+            for i in range(self.n_points) 
+            if self.subpartID[i] in ids
+        ])
+
+        # extract corresponding subpartID's
         subvtk.subpartID = np.array(
             [
                 self.subpartID[i]
@@ -265,6 +289,7 @@ class Cardiac3DMesh:
             ]
         )
 
+        # extract faces
         if self.triangles is not None:
             point_ids = [i for i, id in enumerate(self.subpartID) if id in ids]
             point_ids_set = set(point_ids)
@@ -279,18 +304,25 @@ class Cardiac3DMesh:
                 [tuple([id_mapping[x] for x in triangle]) for triangle in triangles]
             )
 
+        subvtk._dataset_version = self._dataset_version
+        subvtk._subpart_id_mapping = self._subpart_id_mapping
+        subvtk._subpart_id_mapping_str_to_int = self._subpart_id_mapping_str_to_int
+        subvtk._subpart_id_mapping_int_to_str = self._subpart_id_mapping_int_to_str
+        
         return subvtk
 
+
     def _map_subpart_ids(self, ids):
-        """ """
+        
+        # The two lines below do this:
+        #   1 -> [1]
+        #   1,2 -> [1,2]
+        #   "LV" -> ["LV"]
+        #   "LV", "RV"  -> ["LV", "RV"]
+        
 
         ids = list(ids) if isinstance(ids, tuple) else ids
         ids = [ids] if not isinstance(ids, list) else ids
-
-        # 1 -> [1]
-        # 1,2 -> [1,2]
-        # "LV" -> ["LV"]
-        # "LV", "RV"  -> ["LV", "RV"]
 
         possible_values = list(self.distinct_subparts)
         possible_values += [
@@ -314,12 +346,15 @@ class Cardiac3DMesh:
 
         return kk
 
+
     def __getitem__(self, ids):
         return self._extract_subpart(self._map_subpart_ids(ids))
+
 
     @property
     def shape(self):
         return self.points.shape
+
 
     @property
     def adj_matrix(self):
@@ -344,11 +379,13 @@ class Cardiac3DMesh:
             )
             return self._adj_matrix
 
+
     def adj_matrix_to_edges(self, adj_matrix):
         from scipy import sparse as sp
 
         non_zero_indices = sp.find(adj_matrix)
         return zip(non_zero_indices[0], non_zero_indices[1])
+
 
     # mesh to vtk
     def save_to_vtk(self, filename):
@@ -358,7 +395,8 @@ class Cardiac3DMesh:
             cells={"triangle": np.array(self.triangles)},
             point_data={"subpartID": self.subpartID},
         )
-        
+
+
     # mesh to pickle
     def save_to_pkl(self, filename):
         dict = {"points" : self.points, "triangles" : self.triangles, "subpartID" : self.subpartID}
@@ -382,6 +420,20 @@ class Cardiac3DMesh:
 
         m = stlmesh.Mesh(data)
         m.save(filename)
+
+
+    def downsample_mesh(self, new_faces, downsample_matrix):
+
+        self.triangles = new_faces
+        self.points = downsample_matrix * self.points 
+
+        # list of str to np.array of int
+        self.subpartID = np.array([self._subpart_id_mapping_str_to_int[x] for x in self.subpartID])
+        self.subpartID = downsample_matrix * self.subpartID
+        self.subpartID = list([self._subpart_id_mapping_int_to_str[x] for x in self.subpartID])
+
+        return self
+
 
 class Cardiac4DMesh:
 
