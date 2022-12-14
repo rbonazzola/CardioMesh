@@ -10,9 +10,10 @@ from tqdm import tqdm
 import logging
 import random
 
-from stl import mesh as stlmesh
-
 from IPython import embed  # For debugging
+
+from copy import copy
+from typing import Union, List, Literal, Tuple
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
@@ -34,6 +35,8 @@ class Cardiac3DMesh:
     def __init__(
         self,
         filename=None,
+        faces_filename=None,
+        subpart_id_filename=None,
         subpartIDs=None,
         load_connectivity_flag=True,
         dataset_version=None,
@@ -42,6 +45,8 @@ class Cardiac3DMesh:
 
         """
         filename: path to a file for a VTK Polydata object.
+        faces_filename: if `filename` is a NumPy binary file (.npy), `filename` is assumed to contain only point coordinates, therefore this `faces_filename` path with the connectivity must be provided.
+        subpart_id_filename: idem previous, for subpart IDs.
         subpartIDs: either a label or a list of labels to subset the mesh for (e.g. "LV", "RV", etc.)
         load_connectivity_flag: boolean indicating whether or not to load the mesh connectivity information
         dataset_version: if None, it is inferred automatically based on the subpart IDs. Currently supported values are "LEGACY_2CHAMBER_SPASM" and "FULL_HEART_MODEL_MMF"
@@ -51,82 +56,156 @@ class Cardiac3DMesh:
         self._logger = set_logger(logger)
 
         if filename is not None:
+            
             self._filename = filename
+            self._faces_filename = faces_filename
+            self._subpart_id_filename = subpart_id_filename
 
             # TODO: inform when a symbolic link is broken
             if not os.path.exists(self._filename):
                 raise FileExistsError("File {} does not exist.".format(self._filename))
 
+            self._load_connectivity_flag = load_connectivity_flag
+                
             # check if filename extension is .vtk or pickle 
             if self._filename.endswith(".vtk"):
 
-                self._reader = vtk.vtkPolyDataReader()
-                self._reader.SetFileName(self._filename)
-                self._reader.Update()
-
-                self._load_point_cloud()
-                if load_connectivity_flag:
-                    self._load_connectivity()
-                self._load_partition_ids()
-                self._infer_dataset_version()
+                self.points = self._load_point_cloud(format_from="vtk")                
+                self.triangles = self._load_connectivity(format_from="vtk")                                   
+                self.subpartID = self._load_partition_ids(format_from="vtk")
 
             elif self._filename.endswith(".pkl"):
-
-                with open(self._filename, "rb") as f:
-                    dict = pkl.load(f)
+                                
+                # We assume vertices and faces are numpy arrays
+                self.points = self._load_point_cloud(format_from="pkl")
+                self.triangles = self._load_connectivity(format_from="pkl")                        
+                self.subpartID = self._load_partition_ids(format_from="pkl")                                         
                 
-                # We can assume vertices and faces are numpy arrays
-                self.points = dict['points']
-                self.triangles = dict['triangles']
-                try:
-                    self.subpartID = dict['subpartID']
-                except:
-                    subpartIDs = None
-                self._infer_dataset_version()
-
+            elif self._filename.endswith(".npy"):
+                
+                self.points = self._load_point_cloud(format_from="npy")
+                self.triangles = self._load_connectivity(format_from="csv")
+                self.subpartID = self._load_partition_ids(format_from="txt")
+                
+            self._infer_dataset_version()
+                    
         if subpartIDs is not None:
             newMesh = self._extract_subpart(subpartIDs)
             self.__dict__.update(newMesh.__dict__)
 
 
-    def _load_point_cloud(self):
+    def _load_point_cloud(self, format_from = Literal["vtk", "pkl", "npy"]):
 
         """
         :return: numpy array where each element is a triple of (x, y, z)
         coordinates and a set of indices representing the links to that point
         """
 
-        output = self._reader.GetOutput()
-        n_points = output.GetNumberOfPoints()
-        self.points = np.array([output.GetPoint(i) for i in range(n_points)])
+        if format_from == "vtk":
+            self._reader = vtk.vtkPolyDataReader()
+            self._reader.SetFileName(self._filename)
+            self._reader.Update()
+            
+            output = self._reader.GetOutput()
+            n_points = output.GetNumberOfPoints()
+            points = np.array([output.GetPoint(i) for i in range(n_points)])
+
+        elif format_from == "pkl":
+            
+            with open(self._filename, "rb") as f:
+                self._mesh_dict = pkl.load(f)
+            
+            points = self._mesh_dict["points"]            
+        
+        elif format_from == "npy":
+            points = np.load(self._filename)
+            
+        return points
 
 
-    def _load_connectivity(self, triangles=None, edges=None):
+    def _load_connectivity(self, 
+        triangles: Union[None, List[Tuple]] = None, 
+        edges: Union[None, List[Tuple]] = None, 
+        format_from: Literal["vtk", "pkl", "csv"] = "vtk"):
 
         """
         triangles: if not None, must be a list of 3-tuples containing valid point indices
         edges: if not None, must be a list of 2-tuples containing valid point indices
         if both are None, the connectivity will be read from the VTK file
+        format_from: 
         """
 
-        if triangles is None and edges is None:
-            # TODO: raise an error if the VTK file has not been provided
-            output = self._reader.GetOutput()
-            self.n_cells = output.GetNumberOfCells()
-            self.triangles = [
-                [int(output.GetCell(l).GetPointId(k)) for k in (0, 1, 2)]
-                for l in range(self.n_cells)
-            ]
-        elif triangles is not None:
+        if not self._load_connectivity_flag:
+            self._logger.info("No mesh connectivity is being loaded, because `load_connectivity_flag` was set to False (probably for efficiency purposes). If you want the connectivity to be loaded, toggle this flag.")
+            return None
+        
+        if triangles is not None:
             # TODO: perform better sanity check on the `triangles` argument
             if not isinstance(triangles, list):
                 raise TypeError
             self.triangles = triangles
+            
+        elif edges is not None:
+            triangles = self._triangles_from_edges(edges)
+            return triangles
+        
+        # if triangles is None and edges is None:                
+        
+        if format_from == "vtk":
+            # TODO: raise an error if the VTK file has not been provided
+            output = self._reader.GetOutput()
+            self.n_cells = output.GetNumberOfCells()
+            triangles = [
+                [ int(output.GetCell(l).GetPointId(k)) for k in (0, 1, 2) ]
+                for l in range(self.n_cells)
+            ]
+            
+        elif format_from == "pkl":            
+            
+            triangles = self._mesh_dict["triangles"]
+            
+            #if not hasattr(self, "_mesh_dict"):                            
+            #    with open(self.faces_filename) as ff:
+            #        triangles = pkl.load(ff)
+            
+        elif format_from == "csv":
+            with open(self._faces_filename) as ff:
+                triangles = [[int(point) for point in subpart_id.strip().split(',')] for subpart_id in ff.readlines()]
+            
+        triangles = np.array(triangles)
+        return triangles                    
+
+    
+    def _load_partition_ids(self, format_from=Literal["vtk", "pkl", "csv", "txt"]):
+
+        """
+        Generate a list of the subpart IDs for each of the vertices (i.e. which partition of the mesh they belong to)
+        """
+
+        if format_from == "vtk":
+            output = self._reader.GetOutput()
+            pp = output.GetPointData().GetAbstractArray(0)
+            subpartIDs = [pp.GetValue(i) for i in range(self.n_points)]
+        
+        elif format_from == "pkl":                        
+            subpartIDs = self._mesh_dict.get("subpartID", None)
+            
+            #if not hasattr(self, "_mesh_dict"):                                
+            #    with open(self._subparts_filename, "rb") as ff:
+            #        return pkl.load(ff)            
+            
+        elif format_from == "csv" or format_from == "txt":            
+            with open(self._subpart_id_filename, "rt") as ff:
+                subpartIDs = [subpart_id.strip() for subpart_id in ff.readlines()]
+                if len(subpartIDs) != self.n_points:
+                    raise ValueError("Number of subpart IDs should equal the number of vertices.")
+                                
+            # self.subpartID = [int(pp.GetComponent(i, 0)) for i in range(self.n_points)]            
         else:
-            self.triangles = self._triangles_from_edges(edges)
-
-        self.triangles = np.array(self.triangles)
-
+            raise(ValueError('One of ["vtk", "pkl", "csv", "txt"] should be provided.'))
+            
+        return subpartIDs
+    
 
     def _infer_dataset_version(self):
 
@@ -210,19 +289,6 @@ class Cardiac3DMesh:
         return self.triangles
 
 
-    def _load_partition_ids(self):
-
-        """
-        Generate a list of the subpart IDs for each of the vertices (i.e. which partition of the mesh they belong to)
-        """
-
-        output = self._reader.GetOutput()
-
-        pp = output.GetPointData().GetAbstractArray(0)
-        self.subpartID = [pp.GetValue(i) for i in range(self.n_points)]
-        # self.subpartID = [int(pp.GetComponent(i, 0)) for i in range(self.n_points)]
-
-
     @property
     def n_points(self):
         """
@@ -264,6 +330,7 @@ class Cardiac3DMesh:
 
 
     def _extract_subpart(self, ids):
+        
         """
         ids: a label or a list of labels for the subpart/s to be extracted
         :return: a Cardiac3DMesh object representing the subpart to be extracted.
@@ -272,7 +339,7 @@ class Cardiac3DMesh:
         ids = [ids] if not isinstance(ids, list) else ids
 
         subvtk = Cardiac3DMesh()
-
+        
         # extract points
         subvtk.points = np.array([
             self.points[i] 
@@ -281,13 +348,9 @@ class Cardiac3DMesh:
         ])
 
         # extract corresponding subpartID's
-        subvtk.subpartID = np.array(
-            [
-                self.subpartID[i]
-                for i in range(self.n_points)
-                if self.subpartID[i] in ids
-            ]
-        )
+        subvtk.subpartID = np.array([
+            self.subpartID[i] for i in range(self.n_points) if self.subpartID[i] in ids
+        ])
 
         # extract faces
         if self.triangles is not None:
@@ -399,18 +462,27 @@ class Cardiac3DMesh:
 
     # mesh to pickle
     def save_to_pkl(self, filename):
-        dict = {"points" : self.points, "triangles" : self.triangles, "subpartID" : self.subpartID}
+        
+        mesh_dict = {
+            "points" : self.points, 
+            "triangles" : self.triangles, 
+            "subpartID" : self.subpartID
+        }
 
         with open(filename, "wb") as f:
-            pkl.dump(dict, f)
+            pkl.dump(mesh_dict, f)
 
+            
     # mesh to stl
     def save_to_stl(self, filename):
+        
+        from stl import mesh as stlmesh
+
         num_triangles = self.triangles.shape[0]
         data = np.zeros(num_triangles, dtype=stlmesh.Mesh.dtype)
 
         for i in range(num_triangles):
-            #I did not know how to use numpy-arrays in this case. This was the major roadblock
+            # ngaggion: I did not know how to use numpy-arrays in this case. This was the major roadblock
             # assign vertex co-ordinates to variables to write into mesh
             v1x, v1y, v1z = self.points[self.triangles[i,0],0], self.points[self.triangles[i,0],1], self.points[self.triangles[i,0],2]
             v2x, v2y, v2z = self.points[self.triangles[i,1],0], self.points[self.triangles[i,1],1], self.points[self.triangles[i,1],2]
@@ -424,15 +496,16 @@ class Cardiac3DMesh:
 
     def downsample_mesh(self, new_faces, downsample_matrix):
 
-        self.triangles = new_faces
-        self.points = downsample_matrix * self.points 
+        new_mesh = copy(self)
+        new_mesh.triangles = new_faces
+        new_mesh.points = downsample_matrix * self.points 
 
         # list of str to np.array of int
-        self.subpartID = np.array([self._subpart_id_mapping_str_to_int[x] for x in self.subpartID])
-        self.subpartID = downsample_matrix * self.subpartID
-        self.subpartID = list([self._subpart_id_mapping_int_to_str[x] for x in self.subpartID])
+        new_mesh.subpartID = np.array([new_mesh._subpart_id_mapping_str_to_int[x] for x in new_mesh.subpartID])
+        new_mesh.subpartID = downsample_matrix * new_mesh.subpartID
+        new_mesh.subpartID = list([new_mesh._subpart_id_mapping_int_to_str[x] for x in new_mesh.subpartID])
 
-        return self
+        return new_mesh
 
 
 class Cardiac4DMesh:
@@ -841,3 +914,30 @@ class CardiacMeshPopulation:
 
         raise NotImplementedError
         return rotation, translation
+    
+    
+### TODO: add as a method to appropriate class/es.
+def transform_mesh(mesh, rotation: Union[None, np.array] = None, traslation: Union[None, np.array] = None):
+    
+    '''
+    params:
+    - mesh: Numpy array of size M x 3 representing a point cloud (with M being number of vertices)
+    - rotation: rotation Matrix
+    - translation: translation vector
+    
+    returns:
+      Numpy array of size M x 3 representing the transformed point cloud       
+    '''
+       
+    mesh = copy(mesh)
+    
+    if traslation is not None:
+        mesh = mesh - traslation
+        
+    if rotation is not None:
+        centroid = mesh.mean(axis=0)
+        mesh -= centroid
+        mesh = mesh.dot(rotation)
+        mesh += centroid
+        
+    return mesh
