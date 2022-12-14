@@ -42,7 +42,7 @@ def generalisedProcrustes(point_clouds: np.array, ids: List, template_mesh=None,
             
             transforms = {}            
 
-
+            embed()
             centroids = point_clouds.mean(axis=1)
             for i, id in enumerate(ids):
                 point_clouds[i] -= centroids[i] 
@@ -90,26 +90,33 @@ def generalisedProcrustes(point_clouds: np.array, ids: List, template_mesh=None,
             return transforms
 
 
-root_folder = "/home/home01/scrb/nobackup/meshes/bvalues/Results"
+# root_folder = "/home/home01/scrb/nobackup/meshes/bvalues/Results"
+ROOT_FOLDER = f"{os.environ['HOME']}/01_repos/CardiacCOMA/data/cardio/meshes"
+OUTPUT_PKL = "procrustes_transforms_FHM_35k.pkl"
+
+# Get subject IDs
 N = 40000
-ids = os.listdir(root_folder)[:N]
+ids = os.listdir(ROOT_FOLDER)[:N]
+
 timepoints=list(range(1,51))
 t = 1
 
-point_clouds = []
-valid_indices = []
-files = [ f"{root_folder}/{id}/models/LV_time{str(t).zfill(3)}.npy" for id in ids ]
+point_clouds, valid_indices = [], []
+files = [ f"{ROOT_FOLDER}/{id}/models/FHM_time{str(t).zfill(3)}.npy" for id in ids ]
 
 for i, id in enumerate(ids):
+  if (i % 1000) == 0:
+      print(i)
   try:
       point_clouds.append(np.load(files[i]))
       valid_indices.append(id)
   except:
       pass
 
+
 point_clouds = np.array(point_clouds)
 transforms = generalisedProcrustes(point_clouds, valid_indices)
 
-with open("procrustes_transforms_35k.pkl", "wb") as ff:
+with open(OUTPUT_PKL, "wb") as ff:
     pkl.dump(transforms, ff)
 
