@@ -3,12 +3,12 @@ This repository provides a helper class for working with the cardiac meshes prod
 This code was tested successfully on bi-ventricular meshes produced by the SpASM method as well as the current full-heart model.
 
 # Table of Contents
-- [Requirements](##Requirements)
-- [Tips](##Tips)
-- [Examples of usage](##Examples-of-usage")
-    - [`Cardiac3DMesh`](#`Cardiac3DMesh`)
-    - [`Cardiac4DMesh`](#`Cardiac4DMesh`)
-    - [`CardiacMeshPopulation`](#`CardiacMeshPopulation`)
+- [Requirements](#requirements)
+- [Tips](#tips)
+- [Examples of usage](#Examples-of-usage)
+    - [`Cardiac3DMesh`](#cardiac3dmesh)
+    - [`Cardiac4DMesh`](#cardiac4dmesh)
+    - [`CardiacMeshPopulation`](#cardiacmeshpopulation)
 4. [TO DO](#TO-DO)
 
 ## Requirements
