@@ -41,6 +41,7 @@ class Cardiac3DMesh:
         load_connectivity_flag=True,
         dataset_version=None,
         logger=None,
+        point_cloud=None,
     ):
 
         """
@@ -88,6 +89,22 @@ class Cardiac3DMesh:
                 self.subpartID = self._load_partition_ids(format_from="txt")
                 
             self._infer_dataset_version()
+            
+        elif point_cloud is not None:
+            
+            try:
+                point_cloud.shape
+            except AttributeError:
+                raise(TypeError)
+            
+            #TODO: handle different formats
+            self._faces_filename = faces_filename
+            self._subpart_id_filename = subpart_id_filename
+            self._load_connectivity_flag = load_connectivity_flag
+            self.points = point_cloud
+            self.triangles = self._load_connectivity(format_from="csv")
+            self.subpartID = self._load_partition_ids(format_from="txt")
+            
                     
         if subpartIDs is not None:
             newMesh = self._extract_subpart(subpartIDs)
