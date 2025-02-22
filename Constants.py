@@ -48,3 +48,12 @@ FHM_SUBPART_AS_STR = {v: k for k,v in FHM_SUBPART_AS_INT.items()}
 FHM_SUBPART_IDS = {
     "AO":["aorta"],
 }
+
+closed_partitions = {
+  "LA_closed" : ("LA", "MVP", "PV1", "PV2", "PV3", "PV4", "PV5"),
+  "RA_cloase" : ("RA", "TVP", "PV6", "PV7"),
+  "LV_closed" : ("LV", "AVP", "MVP"),
+  "RV_closed" : ("RV", "PVP", "TVP"),
+  "BV_closed" : ("LV", "AVP", "MVP", "RV", "PVP", "TVP"),
+  "aorta" : ("aorta",)
+}
