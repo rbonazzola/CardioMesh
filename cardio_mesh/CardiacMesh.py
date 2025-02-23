@@ -668,8 +668,6 @@ class Cardiac4DMesh:
         raise NotImplementedError
 
 
-# "~/data/PhD/meshes/vtk_meshes/2ch_full_cycle/1000215/output/world2gimias/output.001.vtk"
-
 
 class CardiacMeshPopulation:
 
@@ -932,30 +930,6 @@ class CardiacMeshPopulation:
 
         raise NotImplementedError
         return rotation, translation
-    
-    
-### TODO: add as a method to appropriate class/es.
-def transform_mesh(mesh, rotation: Union[None, np.array] = None, traslation: Union[None, np.array] = None):
-    
-    '''
-    params:
-    - mesh: Numpy array of size M x 3 representing a point cloud (with M being number of vertices)
-    - rotation: rotation Matrix
-    - translation: translation vector
-    
-    returns:
-      Numpy array of size M x 3 representing the transformed point cloud       
-    '''
-       
-    mesh = copy(mesh)
-    
-    if traslation is not None:
-        mesh = mesh - traslation
-        
-    if rotation is not None:
-        centroid = mesh.mean(axis=0)
-        mesh -= centroid
-        mesh = mesh.dot(rotation)
-        mesh += centroid
-        
-    return mesh
+
+
+### TODO: add procrustes.transform_mesh as a method to appropriate class/es.
