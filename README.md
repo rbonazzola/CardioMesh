@@ -82,3 +82,4 @@ _To do_
 - Add helpers for building PyTorch and Tensorflow datasets.  
 - Add functions to compute volumes using mesh voxelization.
 - Create a neural network to build a closed mesh for the blood pool of each chamber.
+- Add a `data` submodule for fetching different data items within this repo, such as sample templates, atlas metadata, etc.
