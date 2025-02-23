@@ -23,16 +23,18 @@ The code has been tested using the following versions:
 - `pyglet=1.5.18`
 - `numpy-stl==2.17.1` (for working with volumetric meshes)
 
-
+___
 ## Installation
 While standing in the root directory of this repository, run `pip install -e .`
 
+___
 ## Basic description
 This repo implements three classes:
 - `Cardiac3DMesh`: represents a single cardiac mesh or point cloud.
 - `Cardiac4DMesh`: represents a collection of cardiac meshes for one individual, across the cardiac cycle.
 - `CardiacMeshPopulation`: represents a population of cardiac meshes (either 3D or 4D), i.e. meshes for different individuals in a population.
 
+___
 ## Examples of usage
 
 ### `Cardiac3DMesh`
@@ -65,3 +67,9 @@ lvrv_mesh.show()
 ```
 
 ![full_heart_model_lvrv](https://user-images.githubusercontent.com/11581216/124301229-6babf000-db57-11eb-8a39-7b3305ae9d89.png)
+
+### `Cardiac4DMesh`
+_To do_
+
+### `CardiacMeshPopulation`
+_To do_
