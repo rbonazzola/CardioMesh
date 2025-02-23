@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Hashable
+from typing import Dict, List, Optional, Hashable, Literal
 import numpy as np
 
 from scipy.spatial import procrustes
