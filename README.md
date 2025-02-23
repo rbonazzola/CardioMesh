@@ -73,3 +73,12 @@ _To do_
 
 ### `CardiacMeshPopulation`
 _To do_
+
+
+## TO-DO
+- Write unit tests.
+- Write a module to obtain inertia axes.
+- Add module to generate synthetic shapes.
+- Add helpers for building PyTorch and Tensorflow datasets.  
+- Add functions to compute volumes using mesh voxelization.
+- Create a neural network to build a closed mesh for the blood pool of each chamber.
