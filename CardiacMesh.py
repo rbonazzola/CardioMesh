@@ -10,10 +10,8 @@ from tqdm import tqdm
 import logging
 import random
 
-from IPython import embed  # For debugging
-
 from copy import copy
-from typing import Union, List, Literal, Tuple
+from typing import Union, List, Tuple
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
@@ -111,7 +109,7 @@ class Cardiac3DMesh:
             self.__dict__.update(newMesh.__dict__)
 
 
-    def _load_point_cloud(self, format_from = Literal["vtk", "pkl", "npy"]):
+    def _load_point_cloud(self, format_from):
 
         """
         :return: numpy array where each element is a triple of (x, y, z)
@@ -143,7 +141,8 @@ class Cardiac3DMesh:
     def _load_connectivity(self, 
         triangles: Union[None, List[Tuple]] = None, 
         edges: Union[None, List[Tuple]] = None, 
-        format_from: Literal["vtk", "pkl", "csv"] = "vtk"):
+        format_from = "vtk"):
+#        format_from: Literal["vtk", "pkl", "csv"] = "vtk"):
 
         """
         triangles: if not None, must be a list of 3-tuples containing valid point indices
@@ -193,7 +192,7 @@ class Cardiac3DMesh:
         return triangles                    
 
     
-    def _load_partition_ids(self, format_from=Literal["vtk", "pkl", "csv", "txt"]):
+    def _load_partition_ids(self, format_from):
 
         """
         Generate a list of the subpart IDs for each of the vertices (i.e. which partition of the mesh they belong to)
@@ -515,6 +514,8 @@ class Cardiac3DMesh:
 
         new_mesh = copy(self)
         new_mesh.triangles = new_faces
+        print(self.points.shape)
+        print(downsample_matrix.shape)
         new_mesh.points = downsample_matrix * self.points 
 
         # list of str to np.array of int
