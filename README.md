@@ -14,16 +14,18 @@ This code was tested successfully on bi-ventricular meshes produced by the SpASM
 
 ## Requirements
 The code has been tested using the following versions:
-- `trimesh==3.9.15`
-- `vtk==9.0.1`
-- `numpy==1.17.4`
-- `pyglet==1.5.18`
-- `meshio==2.3.0`
+- `numpy=1.24.0`,
+- `meshio=5.3.5`,
+- `vtk=9.3.1`,
+- `vedo=2024.5.2`,
+- `scipy=1.10.1`,
+- `trimesh=4.5.3`
+- `pyglet=1.5.18`
 - `numpy-stl==2.17.1` (for working with volumetric meshes)
 
 
-## Tips
-You can add this repository as a submodule to your main repository, under the `utils` folder (or similar).
+## Installation
+While standing in the root directory of this repository, run `pip install -e .`
 
 ## Basic description
 This repo implements three classes:
