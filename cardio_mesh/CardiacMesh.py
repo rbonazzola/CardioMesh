@@ -11,7 +11,9 @@ import logging
 import random
 
 from copy import copy
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Union
+
+import .procrustes
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
@@ -591,8 +593,6 @@ class Cardiac4DMesh:
             kk = np.stack(kk, axis=0)
         except:
             # Handle this error better
-            # embed()
-            # raise ValueError(
             self.logger.error(
                 """
             Not possible to create Numpy array for individual {id}. \
