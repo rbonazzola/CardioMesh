@@ -13,7 +13,10 @@ import random
 from copy import copy
 from typing import Union, List, Tuple, Union
 
-import .procrustes
+from procrustes import (
+  generalised_procrustes,
+  transform_mesh
+)
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
@@ -831,7 +834,7 @@ class CardiacMeshPopulation:
             self._shapePCA = {"eigenvalues": eigenvals, "eigenvectors": eigenvecs}
             return self._shapePCA
 
-    def generalisedProcrustes(self, scaling=True):
+    def generalised_procrustes(self, scaling=True):
 
         if scaling:
             self._logger.info("Performing Procrustes analysis with scaling")

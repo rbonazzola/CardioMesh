@@ -5,43 +5,27 @@ from scipy.spatial import procrustes
 from scipy.linalg import orthogonal_procrustes
 import logging
 
-
 def mse(s1, s2=None):
     if s2 is None:
         s2 = np.zeros_like(s1)
     return ((s1-s2)**2).sum(-1).mean(-1)
 
 
-def get_3d_mesh(ids, root_folder):
-    
-    for id in ids:
-        npy_file = f"{root_folder}/{id}/models/fhm_time001.npy"
-        pc  = np.load(npy_file)
-        yield id, pc
-        
-
-def get_4d_mesh(ids, root_folder, timepoints=list(range(1,51))):
-    
-    for id in ids:
-        for t in timepoints:
-            npy_file = f"{root_folder}/{id}/models/fhm_time{str(t).zfill(3)}.npy"
-            pc  = np.load(npy_file)
-        yield id, pc
-
-
-PointCloud = np.ndarray
-PointCloudID = Hashable
-Transformations = Dict[Literal["traslation", "rotation"], np.ndarray]
-ProcrustesResult = Dict[PointCloudID, Transformations]
+from custom_types import (
+    PointCloud,
+    PointCloudID,
+    Transformations,
+    ProcrustesResult
+)
 
 
 def generalised_procrustes(
-    point_clouds: np.ndarray,
-    ids: Optional[List] = None,
-    template_mesh: Optional[np.ndarray] = None,
+    point_clouds: PointCloud,
+    ids: Optional[List[PointCloudID]] = None,
+    template_mesh: Optional[PointCloud] = None,
     scaling: bool = False,
     logger: logging.Logger = logging.getLogger()
-) -> Dict[Hashable, Dict[str, np.ndarray]]:
+) -> Dict[PointCloudID, Transformations]:
     
     """
     Performs Generalized Procrustes Analysis (GPA) to align a set of point clouds 
@@ -152,7 +136,7 @@ def generalised_procrustes(
     return transforms
 
 
-def transform_mesh(point_cloud: np.ndarray, rotation: Union[None, np.array] = None, traslation: Union[None, np.array] = None):
+def transform_mesh(point_cloud: PointCloud, rotation: Union[None, np.array] = None, traslation: Union[None, np.array] = None):
     
     '''
     params:
