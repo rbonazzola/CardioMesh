@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cardiomesh"
+version = "0.1.0"
+description = "Helper classes for working with cardiac meshes produced by the CardioX pipeline"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "vtk>=9.0",
+    "meshio>=5.0",
+    "tqdm>=4.60",
+]
+
+[project.optional-dependencies]
+# Mesh visualization and STL export.
+viz = ["trimesh>=3.9", "pyvista>=0.38", "ipywidgets", "ipython", "numpy-stl>=2.17"]
+# Mesh decimation and Procrustes alignment.
+# `psbody-mesh` is not on PyPI; install it separately from
+# https://github.com/MPI-IS/mesh before using CardioMesh.decimation.
+decimation = ["torch"]
+dev = ["pytest>=7", "pytest-timeout"]
+
+[tool.setuptools]
+py-modules = [
+    "CardiacMesh",
+    "Constants",
+    "VolumetricMesh",
+    "decimation",
+    "procrustes",
+]
