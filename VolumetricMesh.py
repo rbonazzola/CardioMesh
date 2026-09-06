@@ -23,7 +23,7 @@ def set_logger(logger):
     return logger if logger is not None else logging.getLogger()
 
 
-class Cardiac3DMesh:
+class VolumetricMesh:
 
     """
     This class represents a single cardiac mesh or point cloud, for volumetric meshes without subparts
@@ -61,7 +61,6 @@ class Cardiac3DMesh:
                 self._load_point_cloud()
                 if load_connectivity_flag:
                     self._load_connectivity()
-                self._load_partition_ids()
 
             elif self._filename.endswith(".pkl"):
 
@@ -144,7 +143,7 @@ class Cardiac3DMesh:
         except AttributeError:
             self._neighbors_dict = {}
             for edge in self.edges:
-                self._neighbors_dict.get(edge[0], []).append(edge[1])
+                self._neighbors_dict.setdefault(edge[0], []).append(edge[1])
             return self._neighbors_dict
 
     @property
@@ -237,7 +236,6 @@ class Cardiac3DMesh:
             filename,
             self.points,
             cells={"triangle": np.array(self.triangles)},
-            point_data={"subpartID": self.subpartID},
         )
         
     # mesh to pickle
