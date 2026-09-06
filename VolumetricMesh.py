@@ -10,10 +10,7 @@ from tqdm import tqdm
 import logging
 import random
 
-from IPython import embed  # For debugging
-
 import pickle as pkl
-from stl import mesh as stlmesh
 
 """
 This module is aimed to simplify the implementation of common tasks on VTK triangular meshes,
@@ -252,6 +249,8 @@ class Cardiac3DMesh:
 
     # mesh to stl
     def save_to_stl(self, filename):
+        from stl import mesh as stlmesh
+
         num_triangles = self.triangles.shape[0]
         data = np.zeros(num_triangles, dtype=stlmesh.Mesh.dtype)
 
