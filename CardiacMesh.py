@@ -2,6 +2,7 @@ import vtk
 import numpy as np
 import os
 import meshio  # tested with 2.3.0
+import pickle as pkl
 
 import sys
 from Constants import *
@@ -233,6 +234,8 @@ class Cardiac3DMesh:
         if self.distinct_subparts == {1, 2, 4}:
             self._dataset_version = LEGACY_2CHAMBER_SPASM
             self._subpart_id_mapping = LEGACY_2CH_SUBPART_IDS
+            self._subpart_id_mapping_str_to_int = None
+            self._subpart_id_mapping_int_to_str = None
         else:
             self._dataset_version = FULL_HEART_MODEL_MMF
             self._subpart_id_mapping = FHM_SUBPART_IDS
@@ -278,7 +281,7 @@ class Cardiac3DMesh:
         except AttributeError:
             self._neighbors_dict = {}
             for edge in self.edges:
-                self._neighbors_dict.get(edge[0], []).append(edge[1])
+                self._neighbors_dict.setdefault(edge[0], []).append(edge[1])
             return self._neighbors_dict
 
 
